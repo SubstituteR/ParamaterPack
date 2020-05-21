@@ -11,29 +11,19 @@ struct Packed
     char* returnValue;
     int size;
 };
-
-template<typename ...Ts> int totalSize(Ts&&... args)
-{
-    int size = 0;
-    char unpack[] = { ([&size](auto& item) {
-            size += sizeof(item);
-        }(args), 0)..., 0 };
-    static_cast<void>(unpack);
-    return size;
-}
-
 template<typename ...Ts> Packed f(Ts&&... args)
 {
     Packed packed;
-    packed.size = totalSize(args...);
-    char* memoryBlock = (char*) calloc(1, packed.size);
+    packed.size = (sizeof(Ts) + ...);
+    char* memoryBlock = (char*)calloc(1, packed.size);
     packed.parameters = memoryBlock;
-    char copymemory[] = { ([&memoryBlock, &packed](auto& item) {
-            memcpy(memoryBlock, &item, sizeof(item));
-            packed.returnValue = memoryBlock;
-            memoryBlock += sizeof(item); //move pointer forward
-        }(args), 0)..., 0 };
-    static_cast<void>(copymemory);
+    auto pack = [&memoryBlock, &packed](auto& item)
+    {
+        memcpy(memoryBlock, &item, sizeof(item));
+        packed.returnValue = memoryBlock;
+        memoryBlock += sizeof(item); //move pointer forward
+    };
+    (pack(args), ...);
     return packed;
 }
 
