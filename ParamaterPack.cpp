@@ -14,14 +14,24 @@ struct Packed
 template<typename ...Ts> Packed f(Ts&&... args)
 {
     Packed packed;
-    packed.size = (sizeof(Ts) + ...);
+    packed.size = 0;
+    packed.size = ((sizeof(Ts) + packed.size % sizeof(Ts)) + ...);
+    printf("size is %i\n", packed.size);
     char* memoryBlock = (char*)calloc(1, packed.size);
     packed.parameters = memoryBlock;
-    auto pack = [&memoryBlock, &packed](auto& item)
+
+
+    int written = 0;
+
+    auto pack = [&memoryBlock, &packed, &written](auto& item)
     {
+        memoryBlock += written % sizeof(item);
+        printf("moving %i forward...\n", written % sizeof(item));
         memcpy(memoryBlock, &item, sizeof(item));
+        printf("wrote data to %p for a total of %i bytes.\n", memoryBlock, sizeof(item));
         packed.returnValue = memoryBlock;
         memoryBlock += sizeof(item); //move pointer forward
+        written += sizeof(item);
     };
     (pack(args), ...);
     return packed;
@@ -29,8 +39,8 @@ template<typename ...Ts> Packed f(Ts&&... args)
 
 struct MyStruct
 {
-    int a;
-    float b;
+    char a;
+    double b;
     int ret;
 };
 
@@ -43,7 +53,7 @@ void test(MyStruct* data)
 int main()
 {
     std::cout << "Hello World!\n";
-    Packed block =  f(100, 10.f,0);
+    Packed block = f(65, 10., 0);
     ((void(*)(void*))test)(block.parameters); //just to call by a function pointer
     printf("Returned value %i\n", *block.returnValue);
 }
