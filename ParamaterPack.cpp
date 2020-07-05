@@ -3,18 +3,57 @@
 
 #include <iostream>
 
-
-
 struct Packed
 {
     char* parameters;
     char* returnValue;
     int size;
 };
+
+
+
+template<typename ...Ts> Packed packParameters(int returnValues, Ts&&... args)
+{
+    Packed packed = { nullptr,nullptr, 0 };
+    packed.size = ((sizeof(Ts) + packed.size % sizeof(Ts)) + ...); //calculate total size with alignment.
+
+    char* memoryBlock = (char*)calloc(1, packed.size);
+    packed.parameters = memoryBlock; //get the block of memory for this.
+
+
+    int written = 0;
+    int maxCount = sizeof...(Ts) - returnValues;
+    int itemCount = 0;
+    /*
+        Function to pack the structure.
+    */
+    auto pack = [&memoryBlock, &packed, &written, &maxCount, &itemCount](auto& item)
+    {
+        written += written % sizeof(item);
+        memcpy(memoryBlock+written, &item, sizeof(item));
+        if (itemCount++ == maxCount)
+            packed.returnValue = memoryBlock + written;
+        written += sizeof(item);
+    };
+    (pack(args), ...);
+    return packed;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 template<typename ...Ts> Packed f(Ts&&... args)
 {
-    Packed packed;
-    packed.size = 0;
+    Packed packed = { nullptr,nullptr, 0};
     packed.size = ((sizeof(Ts) + packed.size % sizeof(Ts)) + ...);
     printf("size is %i\n", packed.size);
     char* memoryBlock = (char*)calloc(1, packed.size);
@@ -41,21 +80,28 @@ struct MyStruct
 {
     char a;
     double b;
+    int c;
+    double d;
+    void* e;
     int ret;
+    int ret2;
 };
 
 void test(MyStruct* data)
 {
-    std::cout << "my data is " << data->a << " and " << data->b << "\n";
+    std::cout << "my data is " << data->a << " and " << data->b << " and " << data->c << "\n";
     data->ret = 69;
+    data->ret2 = 420;
 }
 
 int main()
 {
     std::cout << "Hello World!\n";
-    Packed block = f(65, 10., 0);
+    Packed block = packParameters(2, 65, 10., 1337, 1., nullptr, 0, 0);
     ((void(*)(void*))test)(block.parameters); //just to call by a function pointer
-    printf("Returned value %i\n", *block.returnValue);
+
+
+    printf("Returned value %d and %d\n", *((int*)block.returnValue), *((int*)(block.returnValue + 4)));
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
